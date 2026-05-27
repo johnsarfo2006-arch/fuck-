@@ -1,0 +1,88 @@
+name: Build ByteForge APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Bundle Pyodide + Ace
+        run: node scripts/bundle-pyodide.js
+
+      - name: Add Android platform
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Generate app icons
+        run: |
+          pip install Pillow --break-system-packages -q
+          python3 << 'PYEOF'
+          from PIL import Image
+          import os
+          src = 'icon.png'
+          if not os.path.exists(src):
+            print("No custom icon found, using default")
+            exit(0)
+          img = Image.open(src).convert('RGBA')
+          w, h = img.size
+          size = min(w, h)
+          left = (w - size) // 2
+          top = (h - size) // 2
+          img = img.crop((left, top, left+size, top+size))
+          sizes = {'mdpi': 48, 'hdpi': 72, 'xhdpi': 96, 'xxhdpi': 144, 'xxxhdpi': 192}
+          for name, px in sizes.items():
+            folder = f'android/app/src/main/res/mipmap-{name}'
+            os.makedirs(folder, exist_ok=True)
+            icon = img.resize((px, px), Image.LANCZOS)
+            icon.save(f'{folder}/ic_launcher.png')
+            icon.save(f'{folder}/ic_launcher_round.png')
+            print(f'Done {name}: {px}x{px}')
+          print('Icons done!')
+          PYEOF
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Rename APK
+        run: |
+          mkdir -p output
+          cp android/app/build/outputs/apk/debug/app-debug.apk output/ByteForge-Academy.apk
+          ls -lh output/ByteForge-Academy.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ByteForge-Academy-APK
+          path: output/ByteForge-Academy.apk
+          retention-days: 30
