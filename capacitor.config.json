@@ -1,0 +1,21 @@
+{
+  "appId": "com.byteforge.academy",
+  "appName": "ByteForge Academy",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "server": {
+    "androidScheme": "file",
+    "cleartext": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#08081a",
+      "showSpinner": false
+    }
+  }
+}
